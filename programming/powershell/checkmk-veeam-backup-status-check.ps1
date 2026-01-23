@@ -95,13 +95,12 @@ try {
 
         $myJobType = $myJob.Type
 
-        # Get the last session for this computer backup job (pipeline input from job object)
+        # Get the last session for this computer backup job
         $myJobLastSession = $myJob | Get-VBRComputerBackupJobSession -WarningAction SilentlyContinue | Sort-Object CreationTime -Descending | Select-Object -First 1
 
         if ($myJobLastSession) {
             $myJobLastState = $myJobLastSession.State
             $myJobLastResult = $myJobLastSession.Result
-
             $myJobCreationTime = $myJobLastSession.CreationTime | Get-Date -Format "dd.MM.yyyy HH\:mm\:ss" -ErrorAction SilentlyContinue
             $myJobEndTime = $myJobLastSession.EndTime | Get-Date -Format "dd.MM.yyyy HH\:mm\:ss" -ErrorAction SilentlyContinue
 
@@ -153,94 +152,99 @@ try {
 
         $myJobsText = "$myJobsText" + "$myJobName" + "`t" + "$myJobType" + "`t" + "$myJobLastState" + "`t" + "$myJobLastResult" + "`t" + "$myJobCreationTime" + "`t" + "$myJobEndTime" + "`t" + "$warningText" + "`t" + "$errorText" + "`n"
 
-        # Get task details for backup jobs
-        if ($myJobLastSession) {
-            # Get all sessions including retries
-            $sessions = @($myJobLastSession)
-            try {
-                if ($myJobLastSession.IsRetryMode) {
-                    $sessions = $myJobLastSession.GetOriginalAndRetrySessions($TRUE)
-                }
+        # Skip task processing if no session exists
+        if (-not $myJobLastSession) {
+            continue
+        }
+
+        # Each backup job has a number of tasks which were executed (VMs which were processed)
+        # Get all Tasks of the  L A S T  backup session
+        # Caution: Each backup job MAY have run SEVERAL times for retries,
+        # thats why we need all sessions related to the last one if its a retry
+        $sessions = @($myJobLastSession)
+        try {
+            if ($myJobLastSession.IsRetryMode) {
+                $sessions = $myJobLastSession.GetOriginalAndRetrySessions($TRUE)
             }
-            catch {
-                # Retry mode check might fail, continue with single session
+        }
+        catch {
+            # IsRetryMode might not be available, continue with single session
+        }
+
+        $myJobLastSessionTasks = $sessions | Get-VBRTaskSession -ErrorAction SilentlyContinue
+
+        foreach ($myTask in $myJobLastSessionTasks) {
+            $myTaskName = $myTask.Name -replace "[^ -x7e]" -replace " ", "_"
+
+            $myTaskText = "$myTaskText" + "<<<<" + "$myTaskName" + ">>>>" + "`n"
+
+            $myTaskText = "$myTaskText" + "<<<" + "veeam_client:sep(9)" + ">>>" + "`n"
+
+            $myTaskStatus = $myTask.Status
+
+            $myTaskText = "$myTaskText" + "Status" + "`t" + "$myTaskStatus" + "`n"
+
+            $myTaskText = "$myTaskText" + "JobName" + "`t" + "$myJobName" + "`n"
+
+            # Add reason if available (for warning/failed tasks)
+            if ($myTask.Info.Reason) {
+                $myTaskReason = $myTask.Info.Reason -replace "`t", " " -replace "`n", " " -replace "`r", ""
+                $myTaskText = "$myTaskText" + "Reason" + "`t" + "$myTaskReason" + "`n"
             }
 
-            $myJobLastSessionTasks = $sessions | Get-VBRTaskSession -ErrorAction SilentlyContinue
+            $myTaskTotalSize = $myTask.Progress.TotalSize
 
-            foreach ($myTask in $myJobLastSessionTasks) {
-                $myTaskName = $myTask.Name -replace "[^ -x7e]" -replace " ", "_"
+            $myTaskText = "$myTaskText" + "TotalSizeByte" + "`t" + "$myTaskTotalSize" + "`n"
 
-                $myTaskText = "$myTaskText" + "<<<<" + "$myTaskName" + ">>>>" + "`n"
+            $myTaskReadSize = $myTask.Progress.ReadSize
 
-                $myTaskText = "$myTaskText" + "<<<" + "veeam_client:sep(9)" + ">>>" + "`n"
+            $myTaskText = "$myTaskText" + "ReadSizeByte" + "`t" + "$myTaskReadSize" + "`n"
 
-                $myTaskStatus = $myTask.Status
+            $myTaskTransferedSize = $myTask.Progress.TransferedSize
 
-                $myTaskText = "$myTaskText" + "Status" + "`t" + "$myTaskStatus" + "`n"
+            $myTaskText = "$myTaskText" + "TransferedSizeByte" + "`t" + "$myTaskTransferedSize" + "`n"
 
-                $myTaskText = "$myTaskText" + "JobName" + "`t" + "$myJobName" + "`n"
-
-                # Get task warning/error reason if available
-                if ($myTask.Info.Reason) {
-                    $myTaskReason = $myTask.Info.Reason -replace "`t", " " -replace "`n", " " -replace "`r", ""
-                    $myTaskText = "$myTaskText" + "Reason" + "`t" + "$myTaskReason" + "`n"
-                }
-
-                $myTaskTotalSize = $myTask.Progress.TotalSize
-
-                $myTaskText = "$myTaskText" + "TotalSizeByte" + "`t" + "$myTaskTotalSize" + "`n"
-
-                $myTaskReadSize = $myTask.Progress.ReadSize
-
-                $myTaskText = "$myTaskText" + "ReadSizeByte" + "`t" + "$myTaskReadSize" + "`n"
-
-                $myTaskTransferedSize = $myTask.Progress.TransferedSize
-
-                $myTaskText = "$myTaskText" + "TransferedSizeByte" + "`t" + "$myTaskTransferedSize" + "`n"
-
-                # Starting from Version 9.5U3 StartTime is not supported anymore
-                If ($myTask.Progress.StartTime -eq $Null) {
-                    $myTaskStartTime = $myTask.Progress.StartTimeLocal
-                }
-                Else {
-                    $myTaskStartTime = $myTask.Progress.StartTime
-                }
-                $myTaskStartTime = $myTaskStartTime | Get-Date -Format "dd.MM.yyyy HH\:mm\:ss" -ErrorAction SilentlyContinue
-
-                $myTaskText = "$myTaskText" + "StartTime" + "`t" + "$myTaskStartTime" + "`n"
-
-                # Starting from Version 9.5U3 StopTime is not supported anymore
-                If ($myTask.Progress.StopTime -eq $Null) {
-                    $myTaskStopTime = $myTask.Progress.StopTimeLocal
-                }
-                Else {
-                    $myTaskStopTime = $myTask.Progress.StopTime
-                }
-                $lastBackupAge = New-TimeSpan -Start $myTaskStopTime -End (Get-Date) -ErrorAction SilentlyContinue
-
-                $myTaskText = "$myTaskText" + "LastBackupAge" + "`t" + "$($lastBackupAge.TotalSeconds)" + "`n"
-
-                # Result is a value of type System.TimeStamp. I'm sure there is a more elegant way of formatting the output:
-                $myTaskDuration = "" + "{0:D2}" -f $myTask.Progress.duration.Days + ":" + "{0:D2}" -f $myTask.Progress.duration.Hours + ":" + "{0:D2}" -f $myTask.Progress.duration.Minutes + ":" + "{0:D2}" -f $myTask.Progress.duration.Seconds
-
-                $myTaskText = "$myTaskText" + "DurationDDHHMMSS" + "`t" + "$myTaskDuration" + "`n"
-
-                $myTaskAvgSpeed = $myTask.Progress.AvgSpeed
-
-                $myTaskText = "$myTaskText" + "AvgSpeedBps" + "`t" + "$myTaskAvgSpeed" + "`n"
-
-                $myTaskDisplayName = $myTask.Progress.DisplayName
-
-                $myTaskText = "$myTaskText" + "DisplayName" + "`t" + "$myTaskDisplayName" + "`n"
-
-                $myBackupHost = Hostname
-
-                $myTaskText = "$myTaskText" + "BackupServer" + "`t" + "$myBackupHost" + "`n"
-
-                $myTaskText = "$myTaskText" + "<<<<" + ">>>>" + "`n"
-
+            # Starting from Version 9.5U3 StartTime is not supported anymore
+            If ($myTask.Progress.StartTime -eq $Null) {
+                $myTaskStartTime = $myTask.Progress.StartTimeLocal
             }
+            Else {
+                $myTaskStartTime = $myTask.Progress.StartTime
+            }
+            $myTaskStartTime = $myTaskStartTime | Get-Date -Format "dd.MM.yyyy HH\:mm\:ss" -ErrorAction SilentlyContinue
+
+            $myTaskText = "$myTaskText" + "StartTime" + "`t" + "$myTaskStartTime" + "`n"
+
+            # Starting from Version 9.5U3 StopTime is not supported anymore
+            If ($myTask.Progress.StopTime -eq $Null) {
+                $myTaskStopTime = $myTask.Progress.StopTimeLocal
+            }
+            Else {
+                $myTaskStopTime = $myTask.Progress.StopTime
+            }
+            $lastBackupAge = New-TimeSpan -Start $myTaskStopTime -End (Get-Date) -ErrorAction SilentlyContinue
+
+            $myTaskText = "$myTaskText" + "LastBackupAge" + "`t" + "$($lastBackupAge.TotalSeconds)" + "`n"
+
+            # Result is a value of type System.TimeStamp. I'm sure there is a more elegant way of formatting the output:
+            $myTaskDuration = "" + "{0:D2}" -f $myTask.Progress.duration.Days + ":" + "{0:D2}" -f $myTask.Progress.duration.Hours + ":" + "{0:D2}" -f $myTask.Progress.duration.Minutes + ":" + "{0:D2}" -f $myTask.Progress.duration.Seconds
+
+            $myTaskText = "$myTaskText" + "DurationDDHHMMSS" + "`t" + "$myTaskDuration" + "`n"
+
+            $myTaskAvgSpeed = $myTask.Progress.AvgSpeed
+
+            $myTaskText = "$myTaskText" + "AvgSpeedBps" + "`t" + "$myTaskAvgSpeed" + "`n"
+
+            $myTaskDisplayName = $myTask.Progress.DisplayName
+
+            $myTaskText = "$myTaskText" + "DisplayName" + "`t" + "$myTaskDisplayName" + "`n"
+
+            $myBackupHost = Hostname
+
+            $myTaskText = "$myTaskText" + "BackupServer" + "`t" + "$myBackupHost" + "`n"
+
+            $myTaskText = "$myTaskText" + "<<<<" + ">>>>" + "`n"
+
         }
 
     }
