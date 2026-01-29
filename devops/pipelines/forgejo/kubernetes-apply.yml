@@ -1,0 +1,34 @@
+name: Kubernetes Apply
+
+on:
+  push:
+    paths:
+      - 'manifest.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY }}
+  EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET }}
+
+jobs:
+  apply:
+    name: 'K8s Apply'
+    runs-on: docker
+    container:
+      image: 'codeberg.org/latzo/latzo-ci:hermes-1.0'
+
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Get Kubeconfig
+        run: |
+          exo compute sks kubeconfig ${{ vars.CLUSTER_NAME }} kube-admin \
+          --zone ${{ vars.CLUSTER_ZONE }} \
+          --group system:masters > ${{ vars.CLUSTER_NAME }}.kubeconfig
+
+      - name: Apply Manifest
+        run: kubectl --kubeconfig ${{ vars.CLUSTER_NAME }}.kubeconfig apply -f manifest.yaml

@@ -1,0 +1,64 @@
+- name: Setup Host
+  hosts: hv
+  tasks:
+  - name: Update all Debian packages to their latest version
+    ansible.builtin.apt:
+      name: "*"
+      state: latest
+    become: true
+
+  - name: Set up ssh keys of latzo
+    ansible.posix.authorized_key:
+      user: latzo
+      state: present
+      key: "{{ lookup('file', '/home/latzo/dev/home-lab/users/public_keys') }}"
+
+  - name: Install system tools
+    apt:
+      pkg:
+        - git
+        - jq
+        - sudo
+        - ufw
+        - lshw
+        - net-tools
+      state: latest
+      update_cache: true
+    become: true
+
+  - name: Setup home-lab git repository
+    ansible.builtin.git:
+      repo: https://codeberg.org/latzo/home-lab.git
+      dest: /home/latzo/dev/home-lab
+
+  - name: UFW allow openssh
+    community.general.ufw:
+      rule: allow
+      name: OpenSSH
+    become: true
+
+  - name: Connection rate limiting
+    community.general.ufw:
+      rule: limit
+      port: ssh
+      proto: tcp
+    become: true
+    
+  - name: Enable UFW
+    community.general.ufw:
+      state: enabled
+    become: true
+
+  - name: Install KVM and related packages on Debian
+    apt:
+      name:
+        - qemu
+        - qemu-kvm
+        - libvirt-daemon
+        - libvirt-daemon-system
+        - libvirt-clients
+        - bridge-utils
+        - virtinst
+        - cpu-checker
+      state: present
+    become: true

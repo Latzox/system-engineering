@@ -1,0 +1,41 @@
+name: Configure New Host
+
+on:
+  workflow_dispatch:
+    inputs:
+      hostname:
+        description: 'Hostname to configure'
+        required: true
+        type: string
+
+jobs:
+  configure_host:
+    runs-on: docker
+
+    steps:
+      - name: Checkout Home Lab Repository
+        uses: actions/checkout@v2
+
+      - name: Get IP Address from hosts.json
+        id: get_ip
+        run: |
+          IP=$(jq -r --arg HOSTNAME "${{ github.event.inputs.hostname }}" '.hosts[] | select(.hostname == $HOSTNAME) | .ip_address' hosts.json)
+          echo "IP_ADDRESS=$IP" >> $GITHUB_ENV
+          echo "IP address for ${{ github.event.inputs.hostname }}: $IP"
+
+      - name: Check if the host is reachable
+        run: |
+          ping -c 4 ${{ env.IP_ADDRESS }} || exit 1
+
+      - name: Host Setup
+        uses: https://codeberg.org/latzo/ssh-action@v1
+        with:
+          host: ${{ env.IP_ADDRESS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Clone the home lab repository
+            git clone https://codeberg.org/latzo/home-lab.git ~/home-lab
+
+            # Run the inside.sh script
+            ~/home-lab/hosts/inside.sh

@@ -1,0 +1,35 @@
+on:
+  push:
+    paths:
+      - 'app/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 'Build'
+    runs-on: docker
+    container:
+      image: 'code.forgejo.org/oci/node:20-bookworm'
+
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Read version from JSON
+        id: version
+        run: |
+          apt update && apt install jq -y
+          echo "VERSION=$(jq -r '.version' src/version.json)" >> $GITHUB_ENV
+          echo "CODENAME=$(jq -r '.codename' src/version.json)" >> $GITHUB_ENV
+
+      - name: Build and Push Docker Image
+        uses: https://codeberg.org/latzo/kaniko-build-action@v2
+        with:
+          Dockerfile: './src/Dockerfile'
+          image: codeberg.org/latzo/k8s-hello-world:${{ env.CODENAME }}-${{ env.VERSION }}
+          registry: codeberg.org
+          username: ${{ vars.CODEBERG_USERNAME }}
+          password: ${{ secrets.CODEBERG_DOCKER_SECRET }}

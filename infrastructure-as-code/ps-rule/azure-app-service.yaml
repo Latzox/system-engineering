@@ -1,0 +1,25 @@
+include:
+  module:
+    - PSRule.Rules.Azure
+
+rule:
+  exclude:
+    - Azure.AppService.MinPlan
+    - Azure.AppService.MinTLS # Exclude because there seems to be an error with validation
+    - Azure.AppService.HTTP2 # Exclude because there seems to be an error with validation
+    - Azure.AppService.AvailabilityZone
+    - Azure.AppService.PlanInstanceCount
+    - Azure.SQL.DefenderCloud
+    - Azure.SQL.Auditing
+    - Azure.SQL.MaintenanceWindow
+
+configuration:
+  AZURE_BICEP_FILE_EXPANSION: true
+  AZURE_BICEP_CHECK_TOOL: true
+
+input:
+  pathIgnore:
+  - '**/*.json'
+   
+output:
+  outcome: 'Processed'
