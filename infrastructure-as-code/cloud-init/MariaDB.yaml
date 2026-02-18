@@ -1,0 +1,9 @@
+#cloud-config
+package_update: true
+
+runcmd:
+  - wget https://downloads.mariadb.com/MariaDB/mariadb_repo_setup -O /tmp/mariadb_repo_setup
+  - chmod +x /tmp/mariadb_repo_setup
+  - /tmp/mariadb_repo_setup --mariadb-server-version="mariadb-10.11.8"
+  - apt-get update
+  - apt-get install -y mariadb-server

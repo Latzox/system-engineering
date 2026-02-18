@@ -1,0 +1,23 @@
+name: Import Certificate
+
+on:
+  workflow_dispatch:
+
+jobs:
+  import-cert:
+    runs-on: codeberg-tiny
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Decode and Import Certificate
+      run: |
+        $base64Cert = $env:BASE64_CERTIFICATE
+        $certBytes = [System.Convert]::FromBase64String($base64Cert)
+        [System.IO.File]::WriteAllBytes("certificate.pfx", $certBytes)
+        $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+        Import-PfxCertificate -FilePath certificate.pfx -CertStoreLocation Cert:\LocalMachine\My -Password $password
+      env:
+        BASE64_CERTIFICATE: ${{ secrets.BASE64_CERTIFICATE }}
+        WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}

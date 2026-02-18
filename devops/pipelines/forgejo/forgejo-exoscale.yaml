@@ -1,0 +1,33 @@
+name: Demo
+
+on:
+  push:
+    paths:
+      - '.forgejo/workflows/forgejo-exoscale.yaml'
+
+permissions:
+  contents: read
+
+env:
+  EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY }}
+  EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET }}
+
+jobs:
+  demo:
+    name: 'Demo'
+    runs-on: docker
+    container:
+      image: 'codeberg.org/latzo/latzo-ci:hermes-1.0'
+
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Check Exoscale Version
+        run: exo version
+
+      - name: Get Exo Config
+        run: exo config show
+
+      - name: List dns of Polaris
+        run: exo dns list

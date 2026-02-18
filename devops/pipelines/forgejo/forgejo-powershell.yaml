@@ -1,0 +1,26 @@
+name: Demo
+
+on:
+  push:
+    paths:
+      - '.forgejo/workflows/forgejo-powershell.yaml'
+
+permissions:
+  contents: read
+
+env:
+  VAR1: ${{ vars.DEMO }}
+
+jobs:
+  demo:
+    name: 'Demo'
+    runs-on: docker
+    container:
+      image: 'mcr.microsoft.com/powershell'
+
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Execute PowerShell Command
+        run: Write-Host $PSVersionTable

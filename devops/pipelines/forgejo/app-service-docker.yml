@@ -1,0 +1,53 @@
+name: Bicep Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      appservicename:
+        type: string
+        description: Name your App Service app
+      rg:
+        type: string
+        description: Name of the resource group for the App Service
+      imagetag:
+        type: string
+        description: Choose Image to Deploy <Image:Tag>
+      registryname:
+        type: string
+        description: Name of the ACR where the Image is stored
+      acrrgname:
+        type: string
+        description: Resource Group in which the ACR is deployed
+      azurelocation:
+        type: string
+        description: Type in the Azure Location for Deployment
+
+
+jobs:
+  Bicep-Deploy:
+    runs-on: codeberg-tiny
+    # environment: production
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4.1.1
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Create Resource Group
+      uses: azure/CLI@v1.0.9
+      with:
+        azcliversion: 2.49.0
+        inlineScript: |
+          az group create --resource-group ${{ github.event.inputs.rg }} --location ${{ github.event.inputs.azurelocation }}
+
+    #- name: Azure Bicep Deploy
+    #  uses: Azure/arm-deploy@v2
+    #  with:
+    #    subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION }}
+    #    resourceGroupName: ${{ github.event.inputs.rg }}
+    #    template: ./deploy/main.bicep
+    #    parameters: 'dockerImageNameTag=${{ github.event.inputs.imagetag }} appServiceName=${{ github.event.inputs.appservicename }} containerRegistryName=${{ github.event.inputs.registryname }} acrResourceGroupName=${{ github.event.inputs.acrrgname }}'
+    #    failOnStdErr: false

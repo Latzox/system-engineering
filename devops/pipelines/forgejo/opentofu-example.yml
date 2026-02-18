@@ -1,0 +1,44 @@
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TF_VAR_exoscale_key: ${{ secrets.EXOSCALE_KEY }}
+  TF_VAR_exoscale_secret: ${{ secrets.EXOSCALE_SECRET }}
+
+jobs:
+  demo:
+    name: 'Demo'
+    runs-on: docker
+    container:
+      image: 'codeberg.org/latzo/latzo-ci:hermes-1.0'
+
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Check Version
+        run: tofu version
+
+      - name: Initialize
+        run: |
+          cd infrastructure-as-code/opentofu/exoscale
+          tofu init
+
+      - name: Format Check
+        run: |
+          cd infrastructure-as-code/opentofu/exoscale
+          tofu fmt -check
+
+      - name: Tofu Plan
+        run: |
+          cd infrastructure-as-code/opentofu/exoscale
+          tofu plan -input=false
+
+      - name: Tofu Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd infrastructure-as-code/opentofu/exoscale
+          tofu apply -auto-approve -input=false

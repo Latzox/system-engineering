@@ -1,0 +1,24 @@
+#cloud-config
+package_update: true
+
+packages:
+  - apache2
+
+write_files:
+  - path: /var/www/html/index.html
+    permissions: '0644'
+    owner: root:root
+    content: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Welcome to My Custom Website</title>
+      </head>
+      <body>
+        <h1>Custom Apache Web Server on Azure</h1>
+        <p>This site has been configured automatically using cloud-init.</p>
+      </body>
+      </html>
+
+runcmd:
+  - systemctl restart apache2
