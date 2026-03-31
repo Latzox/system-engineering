@@ -22,14 +22,14 @@ cd system-engineering
 ### Run a utility script
 
 ```bash
-# Example: Check system health
+# Example: Generate new xen mac address
 python3 ./virtualization/xen/generate-mac-address.py
 ```
 
 ### Deploy a configuration
 
 ```bash
-# Example: Apply Nginx hardening config
+# Example: Apply Nginx config
 cp configurations/nginx/nginx.conf /etc/nginx/nginx.conf
 ```
 
